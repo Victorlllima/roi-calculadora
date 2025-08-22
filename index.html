@@ -14,12 +14,13 @@
 <body class="bg-slate-50 text-slate-800">
   <div id="root"></div>
 
-  <!-- React + Babel + Recharts -->
-  <script src="https://unpkg.com/react@17/umd/react.production.min.js"></script>
-  <script src="https://unpkg.com/react-dom@17/umd/react-dom.production.min.js"></script>
-  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/recharts@2.5.0/umd/Recharts.min.js"></script>
-
+<!-- React + ReactDOM (dev para depuração; depois voltamos para production) -->
+<script src="https://unpkg.com/react@17/umd/react.development.js" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@17/umd/react-dom.development.js" crossorigin="anonymous"></script>
+<!-- Babel standalone -->
+<script src="https://unpkg.com/@babel/standalone/babel.min.js" crossorigin="anonymous"></script>
+  <!-- Recharts UMD (versão estável com window.Recharts) -->
+<script src="https://unpkg.com/recharts@2.1.15/umd/Recharts.min.js" crossorigin="anonymous"></script>
   <script type="text/babel">
     const {
       BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid,
@@ -371,4 +372,5 @@
     ReactDOM.render(<App />, document.getElementById('root'));
   </script>
 </body>
+
 </html>
