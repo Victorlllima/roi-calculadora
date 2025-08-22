@@ -1,0 +1,374 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>ROI: Funcionário Humano vs Automação IA</title>
+  <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+  <style>
+    /* Suaviza fontes e tooltips */
+    body { -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; }
+    .recharts-default-tooltip { font-size: 12px; }
+  </style>
+</head>
+<body class="bg-slate-50 text-slate-800">
+  <div id="root"></div>
+
+  <!-- React + Babel + Recharts -->
+  <script src="https://unpkg.com/react@17/umd/react.production.min.js"></script>
+  <script src="https://unpkg.com/react-dom@17/umd/react-dom.production.min.js"></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/recharts@2.5.0/umd/Recharts.min.js"></script>
+
+  <script type="text/babel">
+    const {
+      BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid,
+      Tooltip, Legend, PieChart, Pie, Cell, ResponsiveContainer
+    } = Recharts;
+
+    function NumberField({ label, value, onChange }) {
+      return (
+        <label className="block">
+          <span className="block text-sm text-slate-600 mb-1">{label}</span>
+          <input
+            type="number"
+            value={value}
+            onChange={(e) => onChange(Number(e.target.value))}
+            className="w-full px-3 py-2 border rounded-md bg-white"
+          />
+        </label>
+      );
+    }
+
+    function PercentField({ label, value, onChange }) {
+      return (
+        <label className="block">
+          <span className="block text-sm text-slate-600 mb-1">{label}</span>
+          <div className="flex items-center gap-2">
+            <input
+              type="number"
+              value={value}
+              onChange={(e) => onChange(Number(e.target.value))}
+              className="w-full px-3 py-2 border rounded-md bg-white"
+            />
+            <span className="text-slate-500 text-sm">%</span>
+          </div>
+        </label>
+      );
+    }
+
+    function App() {
+      // Defaults de mercado (editáveis)
+      const SALARIO_MINIMO_2025 = 1518; // Referência pública 2025
+      const [inputs, setInputs] = React.useState({
+        // Bloco 1: Funcionário Humano
+        salario: SALARIO_MINIMO_2025,            // R$ 1.518
+        valeTransporte: 250,                     // média urbana
+        valeRefeicao: 900,                       // R$ 40/dia útil aprox.
+        planoSaude: 350,                         // coparticipação PME
+        outrosBeneficios: 120,                   // seguro de vida etc.
+        // Alíquotas (padrões conservadores – editáveis)
+        fgtsPct: 8,                              // %
+        inssPatronalPct: 20,                     // %
+        satPct: 1,                               // %
+        sistemaSPct: 3.3,                        // %
+        salarioEducacaoPct: 2.5,                 // %
+        // Infra (em base mensal)
+        equipamentoMensal: 200,                  // depreciação + softwares
+        espacoFisicoMensal: 300,                 // aluguel proporcional + utilidades
+
+        // Bloco 2: IA / Automação
+        implementacao: 20000,                    // investimento
+        assinaturaMensal: 1200,                  // APIs + hosting + suporte
+      });
+
+      const [timeframe, setTimeframe] = React.useState('1ano');
+
+      // Helpers
+      const mesesPorPeriodo = React.useMemo(() => {
+        switch (timeframe) {
+          case '6meses': return 6;
+          case '1ano': return 12;
+          case '3anos': return 36;
+          case '5anos': return 60;
+          default: return 12;
+        }
+      }, [timeframe]);
+
+      // Cálculo Funcionário (mensal -> anualizado por período)
+      const calcMensalFuncionario = () => {
+        const sal = inputs.salario;
+        const encargosBase = (
+          (inputs.inssPatronalPct/100) +
+          (inputs.satPct/100) +
+          (inputs.sistemaSPct/100) +
+          (inputs.salarioEducacaoPct/100)
+        );
+        // Provisões mensais
+        const decimoTerceiroMensal = sal / 12;
+        const feriasMensal = (sal * 1.3333333333) / 12; // férias + 1/3
+        const fgtsMensal = sal * (inputs.fgtsPct/100);
+
+        const beneficiosMensais = inputs.valeTransporte + inputs.valeRefeicao + inputs.planoSaude + inputs.outrosBeneficios;
+        const infraMensal = inputs.equipamentoMensal + inputs.espacoFisicoMensal;
+
+        const encargosMensais = sal * encargosBase;
+
+        const totalMensal =
+          sal +
+          encargosMensais +
+          fgtsMensal +
+          decimoTerceiroMensal +
+          feriasMensal +
+          beneficiosMensais +
+          infraMensal;
+
+        return {
+          totalMensal,
+          breakdown: {
+            salarioBase: sal,
+            fgts: fgtsMensal,
+            inssPatronal: sal * (inputs.inssPatronalPct/100),
+            sat: sal * (inputs.satPct/100),
+            sistemaS: sal * (inputs.sistemaSPct/100),
+            salarioEducacao: sal * (inputs.salarioEducacaoPct/100),
+            decimoTerceiro: decimoTerceiroMensal,
+            ferias: feriasMensal,
+            beneficios: beneficiosMensais,
+            infraestrutura: infraMensal,
+          }
+        };
+      };
+
+      const mensalFuncionario = calcMensalFuncionario();
+      const custoFuncionarioPeriodo = mensalFuncionario.totalMensal * mesesPorPeriodo;
+
+      // Cálculo IA
+      const custoIAPeriodo = inputs.implementacao + (inputs.assinaturaMensal * mesesPorPeriodo);
+
+      // Comparativos
+      const economia = custoFuncionarioPeriodo - custoIAPeriodo;
+      const roi = custoIAPeriodo > 0 ? ((economia / custoIAPeriodo) * 100) : 0;
+
+      const bp = mensalFuncionario.breakdown;
+      const dadosComparacao = [
+        { periodo: '6 meses', funcionario: calcMensalFuncionario().totalMensal * 6, ia: inputs.implementacao + (inputs.assinaturaMensal * 6) },
+        { periodo: '1 ano', funcionario: calcMensalFuncionario().totalMensal * 12, ia: inputs.implementacao + (inputs.assinaturaMensal * 12) },
+        { periodo: '3 anos', funcionario: calcMensalFuncionario().totalMensal * 36, ia: inputs.implementacao + (inputs.assinaturaMensal * 36) },
+        { periodo: '5 anos', funcionario: calcMensalFuncionario().totalMensal * 60, ia: inputs.implementacao + (inputs.assinaturaMensal * 60) },
+      ];
+
+      const dadosPizzaFunc = [
+        { name: 'Salário Base', value: bp.salarioBase, color: '#2563eb' },
+        { name: 'Encargos (INSS+SAT+S+SE)', value: bp.inssPatronal + bp.sat + bp.sistemaS + bp.salarioEducacao, color: '#0ea5e9' },
+        { name: 'FGTS', value: bp.fgts, color: '#22c55e' },
+        { name: '13º + Férias', value: bp.decimoTerceiro + bp.ferias, color: '#f59e0b' },
+        { name: 'Benefícios', value: bp.beneficios, color: '#a855f7' },
+        { name: 'Infraestrutura', value: bp.infraestrutura, color: '#64748b' },
+      ];
+
+      const currency = (n) => `R$ ${Number(n || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+
+      return (
+        <div className="min-h-screen">
+          <header className="border-b bg-white">
+            <div className="max-w-7xl mx-auto px-6 py-6 flex flex-col items-center gap-4">
+              {/* Logo centralizado e responsivo */}
+              <img
+                src="1.png"
+                alt="Logo"
+                className="block"
+                style={{ width: 'min(50vw, 180px)', height: 'auto', display: 'block' }}
+              />
+              <div className="w-full flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+                <div className="text-center md:text-left">
+                  <h1 className="text-2xl md:text-3xl font-semibold tracking-tight">ROI: Funcionário Humano vs Automação IA</h1>
+                  <p className="text-slate-500">Compare custos totais considerando encargos e provisões vs investimento e assinatura de IA.</p>
+                </div>
+                <div className="flex items-center gap-3 justify-center md:justify-end">
+                  <label htmlFor="horizonte" className="text-sm text-slate-600">Horizonte</label>
+                  <select
+                    id="horizonte"
+                    value={timeframe}
+                    onChange={(e) => setTimeframe(e.target.value)}
+                    className="px-3 py-2 border rounded-md bg-white text-slate-800"
+                  >
+                    <option value="6meses">6 meses</option>
+                    <option value="1ano">1 ano</option>
+                    <option value="3anos">3 anos</option>
+                    <option value="5anos">5 anos</option>
+                  </select>
+                </div>
+              </div>
+            </div>
+          </header>
+
+          <main className="max-w-7xl mx-auto px-6 py-8 space-y-8">
+            {/* KPIs */}
+            <section className="grid grid-cols-1 md:grid-cols-4 gap-6">
+              <div className="bg-white border rounded-xl p-5">
+                <p className="text-sm text-slate-500">Custo Funcionário no período</p>
+                <p className="text-2xl font-semibold mt-1">{currency(custoFuncionarioPeriodo)}</p>
+              </div>
+              <div className="bg-white border rounded-xl p-5">
+                <p className="text-sm text-slate-500">Custo IA no período</p>
+                <p className="text-2xl font-semibold mt-1">{currency(custoIAPeriodo)}</p>
+              </div>
+              <div className="bg-white border rounded-xl p-5">
+                <p className="text-sm text-slate-500">Economia estimada</p>
+                <p className={`text-2xl font-semibold mt-1 ${economia >= 0 ? 'text-emerald-600' : 'text-rose-600'}`}>
+                  {currency(economia)}
+                </p>
+              </div>
+              <div className="bg-white border rounded-xl p-5">
+                <p className="text-sm text-slate-500">ROI</p>
+                <p className={`text-2xl font-semibold mt-1 ${roi >= 0 ? 'text-emerald-600' : 'text-rose-600'}`}>
+                  {roi.toFixed(1)}%
+                </p>
+              </div>
+            </section>
+
+            {/* Blocos de entrada */}
+            <section className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+              {/* Funcionário Humano */}
+              <div className="bg-white border rounded-2xl overflow-hidden">
+                <div className="px-6 py-5 border-b">
+                  <h2 className="text-xl font-semibold">Bloco 1 — Funcionário Humano</h2>
+                  <p className="text-slate-500 text-sm">Valores pré-preenchidos com médias de mercado e salário mínimo atual (editáveis).</p>
+                </div>
+                <div className="p-6 grid grid-cols-1 sm:grid-cols-2 gap-5">
+                  <NumberField label="Salário mensal" value={inputs.salario}
+                    onChange={(v) => setInputs({ ...inputs, salario: v })} />
+                  <NumberField label="Vale-transporte (mês)" value={inputs.valeTransporte}
+                    onChange={(v) => setInputs({ ...inputs, valeTransporte: v })} />
+                  <NumberField label="Vale-refeição (mês)" value={inputs.valeRefeicao}
+                    onChange={(v) => setInputs({ ...inputs, valeRefeicao: v })} />
+                  <NumberField label="Plano de saúde (mês)" value={inputs.planoSaude}
+                    onChange={(v) => setInputs({ ...inputs, planoSaude: v })} />
+                  <NumberField label="Outros benefícios (mês)" value={inputs.outrosBeneficios}
+                    onChange={(v) => setInputs({ ...inputs, outrosBeneficios: v })} />
+                  <NumberField label="Equip./softwares (mês)" value={inputs.equipamentoMensal}
+                    onChange={(v) => setInputs({ ...inputs, equipamentoMensal: v })} />
+                  <NumberField label="Espaço físico/utilit. (mês)" value={inputs.espacoFisicoMensal}
+                    onChange={(v) => setInputs({ ...inputs, espacoFisicoMensal: v })} />
+                  <PercentField label="INSS patronal (%)" value={inputs.inssPatronalPct}
+                    onChange={(v) => setInputs({ ...inputs, inssPatronalPct: v })} />
+                  <PercentField label="FGTS (%)" value={inputs.fgtsPct}
+                    onChange={(v) => setInputs({ ...inputs, fgtsPct: v })} />
+                  <PercentField label="SAT (%)" value={inputs.satPct}
+                    onChange={(v) => setInputs({ ...inputs, satPct: v })} />
+                  <PercentField label="Sistema S (%)" value={inputs.sistemaSPct}
+                    onChange={(v) => setInputs({ ...inputs, sistemaSPct: v })} />
+                  <PercentField label="Salário-educação (%)" value={inputs.salarioEducacaoPct}
+                    onChange={(v) => setInputs({ ...inputs, salarioEducacaoPct: v })} />
+                </div>
+                <div className="px-6 pb-6">
+                  <div className="rounded-lg border p-4 bg-slate-50">
+                    <p className="text-sm font-medium mb-2">Resumo mensal (Funcionário)</p>
+                    <ul className="text-sm text-slate-600 space-y-1">
+                      <li>Salário base: {currency(bp.salarioBase)}</li>
+                      <li>Encargos (INSS+SAT+S+SE): {currency(bp.inssPatronal + bp.sat + bp.sistemaS + bp.salarioEducacao)}</li>
+                      <li>FGTS: {currency(bp.fgts)}</li>
+                      <li>13º + Férias (provisões): {currency(bp.decimoTerceiro + bp.ferias)}</li>
+                      <li>Benefícios: {currency(bp.beneficios)}</li>
+                      <li>Infraestrutura: {currency(bp.infraestrutura)}</li>
+                      <li className="font-semibold text-slate-800 mt-2">Total mensal: {currency(mensalFuncionario.totalMensal)}</li>
+                    </ul>
+                  </div>
+                </div>
+              </div>
+
+              {/* IA / Automação */}
+              <div className="bg-white border rounded-2xl overflow-hidden">
+                <div className="px-6 py-5 border-b">
+                  <h2 className="text-xl font-semibold">Bloco 2 — Funcionário IA (Automação)</h2>
+                  <p className="text-slate-500 text-sm">Campos: Implementação (capex) e Assinatura mensal (opex). Editáveis.</p>
+                </div>
+                <div className="p-6 grid grid-cols-1 sm:grid-cols-2 gap-5">
+                  <NumberField label="Implementação" value={inputs.implementacao}
+                    onChange={(v) => setInputs({ ...inputs, implementacao: v })} />
+                  <NumberField label="Assinatura mensal" value={inputs.assinaturaMensal}
+                    onChange={(v) => setInputs({ ...inputs, assinaturaMensal: v })} />
+                </div>
+                <div className="px-6 pb-6">
+                  <div className="rounded-lg border p-4 bg-slate-50">
+                    <p className="text-sm font-medium mb-2">Resumo (IA)</p>
+                    <ul className="text-sm text-slate-600 space-y-1">
+                      <li>Implementação (único): {currency(inputs.implementacao)}</li>
+                      <li>Assinatura no período: {currency(inputs.assinaturaMensal * mesesPorPeriodo)}</li>
+                      <li className="font-semibold text-slate-800 mt-2">Total no período: {currency(custoIAPeriodo)}</li>
+                    </ul>
+                  </div>
+                </div>
+              </div>
+            </section>
+
+            {/* Gráficos com títulos explicativos */}
+            <section className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+              <div className="bg-white border rounded-2xl p-6">
+                <h3 className="text-lg font-semibold mb-1">Comparação de custo total por horizonte</h3>
+                <p className="text-sm text-slate-500 mb-4">Mostra o custo acumulado de manter um funcionário humano vs adotar automação de IA em cada período.</p>
+                <div className="h-72">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart data={dadosComparacao}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
+                      <XAxis dataKey="periodo" />
+                      <YAxis />
+                      <Tooltip formatter={(v) => currency(v)} />
+                      <Legend />
+                      <Bar dataKey="funcionario" name="Funcionário" fill="#0ea5e9" />
+                      <Bar dataKey="ia" name="IA" fill="#6366f1" />
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
+              </div>
+
+              <div className="bg-white border rounded-2xl p-6">
+                <h3 className="text-lg font-semibold mb-1">Composição mensal dos custos do funcionário</h3>
+                <p className="text-sm text-slate-500 mb-4">Detalha como se distribuem salário, encargos, provisões, benefícios e infraestrutura no custo mensal total.</p>
+                <div className="h-72">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <PieChart>
+                      <Pie data={dadosPizzaFunc} dataKey="value" nameKey="name" outerRadius={90} label>
+                        {dadosPizzaFunc.map((d, i) => (
+                          <Cell key={i} fill={d.color} />
+                        ))}
+                      </Pie>
+                      <Tooltip formatter={(v) => currency(v)} />
+                    </PieChart>
+                  </ResponsiveContainer>
+                </div>
+              </div>
+            </section>
+
+            <section className="bg-white border rounded-2xl p-6">
+              <h3 className="text-lg font-semibold mb-1">Evolução comparativa por período</h3>
+              <p className="text-sm text-slate-500 mb-4">Linha do tempo para visualizar tendências de custo acumulado entre as opções.</p>
+              <div className="h-80">
+                <ResponsiveContainer width="100%" height="100%">
+                  <LineChart data={dadosComparacao}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
+                    <XAxis dataKey="periodo" />
+                    <YAxis />
+                    <Tooltip formatter={(v) => currency(v)} />
+                    <Legend />
+                    <Line type="monotone" dataKey="funcionario" name="Funcionário" stroke="#0ea5e9" strokeWidth={3} />
+                    <Line type="monotone" dataKey="ia" name="IA" stroke="#6366f1" strokeWidth={3} />
+                  </LineChart>
+                </ResponsiveContainer>
+              </div>
+            </section>
+
+            <section className="text-xs text-slate-500">
+              Fontes: salário mínimo nacional 2025 (R$ {SALARIO_MINIMO_2025.toLocaleString('pt-BR')}). 
+              Valores de benefícios e alíquotas são estimativas de mercado e podem variar por setor e acordo coletivo.
+            </section>
+          </main>
+        </div>
+      );
+    }
+
+    ReactDOM.render(<App />, document.getElementById('root'));
+  </script>
+</body>
+</html>
